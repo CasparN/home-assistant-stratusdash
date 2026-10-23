@@ -1,0 +1,38 @@
+{
+  "title": "StratusDash",
+  "config": {
+    "step": {
+      "user": {
+        "title": "StratusDash koppelen",
+        "description": "Plak het Home Assistant-token uit je StratusDash-account.",
+        "data": {
+          "token": "Home Assistant-token"
+        }
+      },
+      "reauth_confirm": {
+        "title": "StratusDash opnieuw koppelen",
+        "description": "Plak een vervangend token van hetzelfde account.",
+        "data": {
+          "token": "Vervangend token"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Kan geen verbinding maken met StratusDash.",
+      "invalid_auth": "Het token is ongeldig of ingetrokken."
+    },
+    "abort": {
+      "already_configured": "Dit account is al geconfigureerd.",
+      "reauth_successful": "StratusDash is opnieuw gekoppeld.",
+      "wrong_account": "Het token hoort bij een ander account."
+    }
+  },
+  "entity": {
+    "sensor": {
+      "temperature": {"name": "Temperatuur"},
+      "humidity": {"name": "Luchtvochtigheid"},
+      "pressure": {"name": "Luchtdruk"},
+      "battery_voltage": {"name": "Batterijspanning"}
+    }
+  }
+}

@@ -1,0 +1,9 @@
+target-version = "py314"
+line-length = 88
+
+[lint]
+select = ["ASYNC", "B", "E", "F", "I", "RUF", "UP", "W"]
+
+[lint.isort]
+force-sort-within-sections = true
+known-first-party = ["custom_components.stratusdash"]

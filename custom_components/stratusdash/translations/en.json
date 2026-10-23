@@ -1,0 +1,38 @@
+{
+  "title": "StratusDash",
+  "config": {
+    "step": {
+      "user": {
+        "title": "Connect StratusDash",
+        "description": "Paste the Home Assistant token from your StratusDash account.",
+        "data": {
+          "token": "Home Assistant token"
+        }
+      },
+      "reauth_confirm": {
+        "title": "Reconnect StratusDash",
+        "description": "Paste a replacement token from the same account.",
+        "data": {
+          "token": "Replacement token"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Could not connect to StratusDash.",
+      "invalid_auth": "The token is invalid or has been revoked."
+    },
+    "abort": {
+      "already_configured": "This account is already configured.",
+      "reauth_successful": "StratusDash was reconnected.",
+      "wrong_account": "The token belongs to a different account."
+    }
+  },
+  "entity": {
+    "sensor": {
+      "temperature": {"name": "Temperature"},
+      "humidity": {"name": "Humidity"},
+      "pressure": {"name": "Atmospheric pressure"},
+      "battery_voltage": {"name": "Battery voltage"}
+    }
+  }
+}
