@@ -133,8 +133,6 @@ async def test_history_failure_retries_without_disabling_current_values(
     ],
 )
 async def test_invalid_history_never_partially_imports(hass, mutate):
-    import json
-
     end = dt_util.utcnow().replace(minute=0, second=0, microsecond=0)
     start = end - timedelta(days=1)
     body = history(start, [hour_row(end - timedelta(hours=1))])
@@ -143,9 +141,7 @@ async def test_invalid_history_never_partially_imports(hass, mutate):
         "custom_components.stratusdash.statistics.async_add_external_statistics"
     ) as write:
         with pytest.raises(StratusDashInvalidResponseError):
-            async_import_history(
-                hass, _parse_data(json.dumps(payload()).encode()), body, start
-            )
+            async_import_history(hass, _parse_data(payload()), body, start)
         write.assert_not_called()
 
 

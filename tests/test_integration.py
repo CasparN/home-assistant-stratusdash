@@ -37,7 +37,7 @@ from .conftest import (
 
 
 async def test_api_parses_bounds_and_maps_auth(hass, aioclient_mock) -> None:
-    """The client validates snapshots, bounds bodies, and keeps auth errors safe."""
+    """The client parses snapshots and keeps auth errors safe."""
     aioclient_mock.get(API_DEVICES_URL, json=payload())
     client = StratusDashApiClient(async_get_clientsession(hass), TOKEN)
     data = await client.async_get_devices()
@@ -52,19 +52,11 @@ async def test_api_parses_bounds_and_maps_auth(hass, aioclient_mock) -> None:
         await client.async_get_devices()
     assert TOKEN not in str(error.value)
 
-    aioclient_mock.clear_requests()
-    aioclient_mock.get(
-        API_DEVICES_URL,
-        text="{}",
-        headers={"Content-Length": str(1_048_577)},
-    )
-    with pytest.raises(StratusDashInvalidResponseError):
-        await client.async_get_devices()
-
 
 @pytest.mark.parametrize(
     "mutate",
     [
+        lambda data: data.update(account_id=42),
         lambda data: data.update(devices="not-a-list"),
         lambda data: data["devices"].append(deepcopy(data["devices"][0])),
         lambda data: data["devices"][0].update(temperature_c="warm"),
@@ -77,6 +69,14 @@ async def test_api_rejects_non_authoritative_snapshots(
     body = payload()
     mutate(body)
     aioclient_mock.get(API_DEVICES_URL, json=body)
+    client = StratusDashApiClient(async_get_clientsession(hass), TOKEN)
+    with pytest.raises(StratusDashInvalidResponseError):
+        await client.async_get_devices()
+
+
+@pytest.mark.parametrize("body", ["not json", "[]", "null"])
+async def test_api_rejects_invalid_json_objects(hass, aioclient_mock, body):
+    aioclient_mock.get(API_DEVICES_URL, text=body)
     client = StratusDashApiClient(async_get_clientsession(hass), TOKEN)
     with pytest.raises(StratusDashInvalidResponseError):
         await client.async_get_devices()

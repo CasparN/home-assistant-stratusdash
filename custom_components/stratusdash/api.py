@@ -35,10 +35,6 @@ class StratusDashInvalidResponseError(StratusDashApiError):
     """The service returned an invalid response."""
 
 
-class StratusDashControlError(StratusDashApiError):
-    """The requested settings are invalid or no longer available."""
-
-
 @dataclass(frozen=True, slots=True)
 class SleepHours:
     enabled: bool
@@ -96,15 +92,9 @@ class StratusDashApiClient:
 
     async def async_get_history(self, start: datetime) -> dict:
         """Fetch hourly aggregates; validate them before recorder import."""
-        body = await self._request(
+        return await self._request(
             "GET", "/history", params={"start": start.isoformat()}
         )
-        try:
-            return json.loads(body)
-        except ValueError, UnicodeDecodeError:
-            raise StratusDashInvalidResponseError(
-                "Invalid StratusDash history"
-            ) from None
 
     async def async_set_sleep_hours(self, device_id: str, **changes) -> None:
         await self._request("PATCH", f"/devices/{device_id}/sleep-hours", json=changes)
@@ -114,7 +104,7 @@ class StratusDashApiClient:
             "PUT", f"/devices/{device_id}/layout", json={"layout_id": layout_id}
         )
 
-    async def _request(self, method: str, path: str, **kwargs) -> bytes:
+    async def _request(self, method: str, path: str, **kwargs) -> dict | None:
         if _TOKEN_PATTERN.fullmatch(self._token) is None:
             raise StratusDashAuthenticationError("Invalid StratusDash credential")
         try:
@@ -134,27 +124,14 @@ class StratusDashApiClient:
                             "Invalid StratusDash credential"
                         )
                     if response.status in (404, 422):
-                        raise StratusDashControlError(
+                        raise StratusDashApiError(
                             "The device, layout or quiet-hours schedule is invalid"
                         )
                     if response.status == 204:
-                        return b""
+                        return None
                     if response.status != 200:
                         raise StratusDashConnectionError(
                             "StratusDash is temporarily unavailable"
-                        )
-                    content_length = getattr(response, "content_length", None)
-                    if content_length is None:
-                        try:
-                            content_length = int(response.headers.get("Content-Length"))
-                        except TypeError, ValueError:
-                            content_length = None
-                    if (
-                        content_length is not None
-                        and content_length > _MAX_RESPONSE_BYTES
-                    ):
-                        raise StratusDashInvalidResponseError(
-                            "StratusDash returned too much data"
                         )
                     body = bytearray()
                     async for chunk in response.content.iter_chunked(65536):
@@ -163,19 +140,24 @@ class StratusDashApiClient:
                             raise StratusDashInvalidResponseError(
                                 "StratusDash returned too much data"
                             )
-        except StratusDashApiError:
-            raise
         except TimeoutError, aiohttp.ClientError:
             raise StratusDashConnectionError(
                 "Could not connect to StratusDash"
             ) from None
-        return bytes(body)
+        try:
+            payload = json.loads(body)
+            if not isinstance(payload, dict):
+                raise ValueError
+        except ValueError:
+            raise StratusDashInvalidResponseError(
+                "StratusDash returned invalid data"
+            ) from None
+        return payload
 
 
-def _parse_data(body: bytes) -> StratusDashData:
+def _parse_data(payload: dict) -> StratusDashData:
     """Parse only the small public contract used by the entities."""
     try:
-        payload = json.loads(body.decode("utf-8"))
         account_id = str(UUID(payload["account_id"]))
         raw_devices = payload["devices"]
         if not isinstance(raw_devices, list):
@@ -230,7 +212,7 @@ def _parse_data(body: bytes) -> StratusDashData:
             or len({item.name for item in layouts}) != len(layouts)
         ):
             raise ValueError
-    except KeyError, TypeError, ValueError, UnicodeDecodeError, json.JSONDecodeError:
+    except KeyError, TypeError, ValueError, AttributeError:
         raise StratusDashInvalidResponseError(
             "StratusDash returned invalid data"
         ) from None
