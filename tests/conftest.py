@@ -1,6 +1,9 @@
 """Shared fixtures for the StratusDash custom integration."""
 
+from unittest.mock import patch
+
 from homeassistant.const import CONF_TOKEN
+from homeassistant.util import dt as dt_util
 import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
@@ -30,15 +33,53 @@ def payload(
                 "humidity_percent": 48.0,
                 "pressure_hpa": 1013.2,
                 "battery_voltage_v": 3.82,
+                "sleep_hours": {
+                    "enabled": False,
+                    "start_minute": 60,
+                    "end_minute": 420,
+                    "timezone_id": "Europe/Amsterdam",
+                },
+                "quiet_until": None,
+                "layout_id": 1,
             }
         ]
-    return {"account_id": account_id, "devices": devices}
+    return {
+        "account_id": account_id,
+        "devices": devices,
+        "layouts": [{"id": 1, "name": "Complete"}, {"id": 2, "name": "Compact"}],
+    }
 
 
 @pytest.fixture(autouse=True)
-def auto_enable_custom_integrations(enable_custom_integrations):
+def mock_history():
+    """Keep ordinary entity tests independent of recorder imports."""
+
+    async def empty_history(start):
+        return {
+            "account_id": ACCOUNT_ID,
+            "start": start.isoformat(),
+            "end": dt_util.utcnow()
+            .replace(minute=0, second=0, microsecond=0)
+            .isoformat(),
+            "hours": [],
+        }
+
+    with patch(
+        "custom_components.stratusdash.api.StratusDashApiClient.async_get_history",
+        side_effect=empty_history,
+    ) as mock:
+        yield mock
+
+
+@pytest.fixture(autouse=True)
+def auto_enable_custom_integrations(enable_custom_integrations, recorder_mock):
     """Allow Home Assistant to load the repository custom integration."""
     yield
+
+
+@pytest.fixture
+def mock_recorder_before_hass(recorder_db_url):
+    """Prepare the recorder database before HA initializes its helpers."""
 
 
 @pytest.fixture(name="config_entry")

@@ -29,10 +29,36 @@
   },
   "entity": {
     "sensor": {
-      "temperature": {"name": "Temperatuur"},
-      "humidity": {"name": "Luchtvochtigheid"},
-      "pressure": {"name": "Luchtdruk"},
-      "battery_voltage": {"name": "Batterijspanning"}
+      "temperature": {
+        "name": "Temperatuur"
+      },
+      "humidity": {
+        "name": "Luchtvochtigheid"
+      },
+      "pressure": {
+        "name": "Luchtdruk"
+      },
+      "battery_voltage": {
+        "name": "Batterijspanning"
+      }
+    },
+    "switch": {
+      "quiet_hours": {
+        "name": "Stille uren"
+      }
+    },
+    "time": {
+      "quiet_hours_start": {
+        "name": "Begin stille uren"
+      },
+      "quiet_hours_end": {
+        "name": "Einde stille uren"
+      }
+    },
+    "select": {
+      "layout": {
+        "name": "Layout"
+      }
     }
   }
 }

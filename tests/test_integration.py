@@ -2,8 +2,12 @@
 
 from __future__ import annotations
 
+import asyncio
 from copy import deepcopy
+import json
+from unittest.mock import Mock, PropertyMock, patch
 
+from aiohttp import StreamReader
 from homeassistant.config_entries import SOURCE_REAUTH, SOURCE_USER
 from homeassistant.const import CONF_TOKEN, STATE_UNAVAILABLE
 from homeassistant.data_entry_flow import FlowResultType
@@ -11,6 +15,9 @@ from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
+from pytest_homeassistant_custom_component.test_util.aiohttp import (
+    AiohttpClientMockResponse,
+)
 
 from custom_components.stratusdash.api import (
     StratusDashApiClient,
@@ -84,6 +91,36 @@ async def test_api_rejects_bad_token_without_network(hass, aioclient_mock) -> No
     with pytest.raises(StratusDashAuthenticationError):
         await client.async_get_devices()
     assert aioclient_mock.call_count == 0
+
+
+async def test_client_reads_delayed_chunks_and_enforces_stream_limit(
+    hass, aioclient_mock
+):
+    body = json.dumps(payload()).encode()
+    stream = StreamReader(Mock(_reading_paused=False), limit=65536)
+    stream.feed_data(body[:10])
+
+    async def finish_response():
+        await asyncio.sleep(0)
+        stream.feed_data(body[10:])
+        stream.feed_eof()
+
+    task = asyncio.create_task(finish_response())
+    aioclient_mock.get(API_DEVICES_URL, json=payload())
+    client = StratusDashApiClient(async_get_clientsession(hass), TOKEN)
+    with patch.object(
+        AiohttpClientMockResponse,
+        "content",
+        new_callable=PropertyMock,
+        return_value=stream,
+    ):
+        assert (await client.async_get_devices()).devices[0].temperature_c == 21.5
+    await task
+
+    aioclient_mock.clear_requests()
+    aioclient_mock.get(API_DEVICES_URL, text=" " * 1_048_577)
+    with pytest.raises(StratusDashInvalidResponseError, match="too much data"):
+        await client.async_get_devices()
 
 
 async def test_config_flow_and_wrong_account_reauth(hass, aioclient_mock) -> None:

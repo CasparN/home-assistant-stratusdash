@@ -29,10 +29,36 @@
   },
   "entity": {
     "sensor": {
-      "temperature": {"name": "Temperature"},
-      "humidity": {"name": "Humidity"},
-      "pressure": {"name": "Atmospheric pressure"},
-      "battery_voltage": {"name": "Battery voltage"}
+      "temperature": {
+        "name": "Temperature"
+      },
+      "humidity": {
+        "name": "Humidity"
+      },
+      "pressure": {
+        "name": "Atmospheric pressure"
+      },
+      "battery_voltage": {
+        "name": "Battery voltage"
+      }
+    },
+    "switch": {
+      "quiet_hours": {
+        "name": "Quiet hours"
+      }
+    },
+    "time": {
+      "quiet_hours_start": {
+        "name": "Quiet hours start"
+      },
+      "quiet_hours_end": {
+        "name": "Quiet hours end"
+      }
+    },
+    "select": {
+      "layout": {
+        "name": "Layout"
+      }
     }
   }
 }

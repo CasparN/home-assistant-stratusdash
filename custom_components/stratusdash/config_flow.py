@@ -32,7 +32,7 @@ TOKEN_SCHEMA = vol.Schema(
 
 
 class StratusDashConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
-    """Configure a read-only StratusDash account credential."""
+    """Configure a StratusDash account credential."""
 
     VERSION = 1
 
