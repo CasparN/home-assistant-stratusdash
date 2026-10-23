@@ -7,7 +7,7 @@ from copy import deepcopy
 import json
 from unittest.mock import Mock, PropertyMock, patch
 
-from aiohttp import StreamReader
+from aiohttp import ClientConnectionError, StreamReader
 from homeassistant.config_entries import SOURCE_REAUTH, SOURCE_USER
 from homeassistant.const import CONF_TOKEN, STATE_UNAVAILABLE
 from homeassistant.data_entry_flow import FlowResultType
@@ -22,6 +22,7 @@ from pytest_homeassistant_custom_component.test_util.aiohttp import (
 from custom_components.stratusdash.api import (
     StratusDashApiClient,
     StratusDashAuthenticationError,
+    StratusDashConnectionError,
     StratusDashInvalidResponseError,
 )
 from custom_components.stratusdash.const import API_DEVICES_URL, DOMAIN
@@ -53,6 +54,44 @@ async def test_api_parses_bounds_and_maps_auth(hass, aioclient_mock) -> None:
     assert TOKEN not in str(error.value)
 
 
+# Added by Step 7 coverage audit, final generation pass.
+# Value: protects=safe transport errors and requests that forbid redirects;
+# fails_when=transport exceptions escape or redirect following is enabled;
+# why_new=HTTP status tests do not raise network errors or check redirect policy;
+# seam=none;
+# no_claim=live redirects or deadlines (mocked HTTP, request policy asserted)
+@pytest.mark.parametrize("failure", ["timeout", "connection", "redirect"])
+async def test_api_transport_failures_do_not_follow_redirects(
+    hass, aioclient_mock, failure
+):
+    if failure == "redirect":
+        aioclient_mock.get(
+            API_DEVICES_URL,
+            status=302,
+            headers={"Location": API_DEVICES_URL + "/redirected"},
+            text=TOKEN,
+        )
+        aioclient_mock.get(API_DEVICES_URL + "/redirected", json=payload())
+    else:
+        exception = TimeoutError if failure == "timeout" else ClientConnectionError
+        aioclient_mock.get(API_DEVICES_URL, exc=exception(TOKEN))
+
+    session = async_get_clientsession(hass)
+    client = StratusDashApiClient(session, TOKEN)
+    with patch.object(session, "request", wraps=session.request) as request:
+        with pytest.raises(StratusDashConnectionError) as error:
+            await client.async_get_devices()
+        assert request.call_args.kwargs["allow_redirects"] is False
+    assert TOKEN not in str(error.value)
+    assert aioclient_mock.call_count == 1
+    assert str(aioclient_mock.mock_calls[0][1]) == API_DEVICES_URL
+
+
+# Extended by Step 7 coverage audit.
+# Value: protects=rejection of malformed schedules, layouts and timestamps;
+# fails_when=setting type, range, uniqueness or timezone guards are removed;
+# why_new=existing malformed snapshot cases only cover identity and measurements;
+# seam=none; no_claim=backend validation or device application (mocked HTTP)
 @pytest.mark.parametrize(
     "mutate",
     [
@@ -60,6 +99,19 @@ async def test_api_parses_bounds_and_maps_auth(hass, aioclient_mock) -> None:
         lambda data: data.update(devices="not-a-list"),
         lambda data: data["devices"].append(deepcopy(data["devices"][0])),
         lambda data: data["devices"][0].update(temperature_c="warm"),
+        lambda data: data["devices"][0]["sleep_hours"].update(enabled=1),
+        lambda data: data["devices"][0]["sleep_hours"].update(start_minute=True),
+        lambda data: data["devices"][0]["sleep_hours"].update(end_minute=1440),
+        lambda data: data["devices"][0]["sleep_hours"].update(end_minute=74),
+        lambda data: data["devices"][0]["sleep_hours"].update(end_minute=781),
+        lambda data: data["devices"][0]["sleep_hours"].update(timezone_id=""),
+        lambda data: data["devices"][0].update(layout_id=True),
+        lambda data: data["layouts"][0].update(id=0),
+        lambda data: data["layouts"][1].update(id=1),
+        lambda data: data["layouts"][1].update(name="Complete"),
+        lambda data: data["layouts"][0].update(name=""),
+        lambda data: data["devices"][0].update(received_at="2026-07-24T08:00:00"),
+        lambda data: data["devices"][0].update(quiet_until="not a timestamp"),
     ],
 )
 async def test_api_rejects_non_authoritative_snapshots(
@@ -184,6 +236,11 @@ async def test_coordinator_failure_and_recovery(
     assert hass.states.get(entity_id).state == "22.25"
 
 
+# Extended by Step 7 coverage audit.
+# Value: protects=all eight entity identities survive device removal, rename and reload;
+# fails_when=rediscovery duplicates entities or removed devices retain usable controls;
+# why_new=existing discovery checks only one sensor becoming stale;
+# seam=none; no_claim=real ownership changes (snapshots are mocked)
 async def test_dynamic_discovery_and_device_availability(
     hass, aioclient_mock, config_entry
 ) -> None:
@@ -211,6 +268,49 @@ async def test_dynamic_discovery_and_device_availability(
     await coordinator.async_refresh()
     await hass.async_block_till_done()
     assert hass.states.get(entity_id).state == STATE_UNAVAILABLE
+
+    keys = {
+        "sensor": ("temperature", "humidity", "pressure", "battery_voltage"),
+        "switch": ("quiet_hours",),
+        "time": ("quiet_hours_start", "quiet_hours_end"),
+        "select": ("layout",),
+    }
+    identities = {
+        (domain, key): registry.async_get_entity_id(
+            domain, DOMAIN, f"{ACCOUNT_ID}_{DEVICE_ID}_{key}"
+        )
+        for domain, domain_keys in keys.items()
+        for key in domain_keys
+    }
+    assert all(identities.values())
+    aioclient_mock.clear_requests()
+    aioclient_mock.get(API_DEVICES_URL, json=payload(devices=[]))
+    await coordinator.async_refresh()
+    await hass.async_block_till_done()
+    assert all(
+        hass.states.get(entity).state == STATE_UNAVAILABLE
+        for entity in identities.values()
+    )
+
+    renamed = payload()
+    renamed["devices"][0]["name"] = "Bedroom"
+    aioclient_mock.clear_requests()
+    aioclient_mock.get(API_DEVICES_URL, json=renamed)
+    await coordinator.async_refresh()
+    await hass.async_block_till_done()
+    assert await hass.config_entries.async_unload(config_entry.entry_id)
+    assert await hass.config_entries.async_setup(config_entry.entry_id)
+    await hass.async_block_till_done()
+    assert len(er.async_entries_for_config_entry(registry, config_entry.entry_id)) == 8
+    for (domain, key), entity in identities.items():
+        assert (
+            registry.async_get_entity_id(
+                domain, DOMAIN, f"{ACCOUNT_ID}_{DEVICE_ID}_{key}"
+            )
+            == entity
+        )
+        assert hass.states.get(entity).state != STATE_UNAVAILABLE
+    assert hass.states.get(identities["sensor", "humidity"]).state == "48.0"
 
 
 async def test_setup_auth_failure_starts_reauth(hass, aioclient_mock) -> None:

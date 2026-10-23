@@ -73,4 +73,4 @@ class StratusDashEntity(CoordinatorEntity[StratusDashCoordinator]):
             raise HomeAssistantError(str(error)) from error
         except StratusDashApiError as error:
             raise HomeAssistantError(str(error)) from error
-        await self.coordinator.async_request_refresh()
+        await self.coordinator.async_refresh()
