@@ -18,13 +18,14 @@ from homeassistant.const import (
     UnitOfRatio,
     UnitOfTemperature,
 )
-from homeassistant.core import HomeAssistant, callback
+from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 from homeassistant.helpers.typing import StateType
 
 from . import StratusDashConfigEntry
 from .api import StratusDashDevice
-from .entity import StratusDashEntity
+from .entity import StratusDashEntity, async_discover
+from .statistics import statistic_id
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -80,25 +81,14 @@ async def async_setup_entry(
 ) -> None:
     """Create sensors and discover devices added after setup."""
     coordinator = entry.runtime_data.coordinator
-    known: set[tuple[str, str]] = set()
-
-    @callback
-    def add_new_entities() -> None:
-        current = {
-            (device.id, description.key)
-            for device in coordinator.data.devices
+    async_discover(
+        entry,
+        async_add_entities,
+        lambda device_id: (
+            StratusDashSensor(coordinator, device_id, description)
             for description in DESCRIPTIONS
-        }
-        new = current - known
-        known.update(new)
-        by_key = {description.key: description for description in DESCRIPTIONS}
-        async_add_entities(
-            StratusDashSensor(coordinator, device_id, by_key[key])
-            for device_id, key in sorted(new)
-        )
-
-    add_new_entities()
-    entry.async_on_unload(coordinator.async_add_listener(add_new_entities))
+        ),
+    )
 
 
 class StratusDashSensor(StratusDashEntity, SensorEntity):
@@ -112,6 +102,17 @@ class StratusDashSensor(StratusDashEntity, SensorEntity):
     def native_value(self) -> StateType:
         device = self.device
         return None if device is None else self.entity_description.value_fn(device)
+
+    @property
+    def extra_state_attributes(self) -> dict:
+        return {
+            **(super().extra_state_attributes or {}),
+            "history_statistic_id": statistic_id(
+                self.coordinator.account_id,
+                self._device_id,
+                self.entity_description.key,
+            ),
+        }
 
     @property
     def available(self) -> bool:
