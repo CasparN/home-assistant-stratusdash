@@ -32,6 +32,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: StratusDashConfigEntry) 
     coordinator = StratusDashCoordinator(hass, entry, client)
     await coordinator.async_config_entry_first_refresh()
     entry.runtime_data = StratusDashRuntimeData(coordinator)
+    coordinator.update_display_polling()
+    entry.async_on_unload(coordinator.stop_display_polling)
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     return True
 

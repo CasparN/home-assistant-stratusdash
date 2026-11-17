@@ -27,6 +27,22 @@ this version. Existing entity IDs and account configuration are preserved.
 Rotating or revoking a token invalidates the old token immediately; the
 integration will ask you to reauthenticate.
 
+## Show Home Assistant sensors on a StratusDash screen
+
+Open **Settings → Devices & services → StratusDash → Configure**, choose your
+device, then select up to four numeric sensors in the order you want them shown.
+Save to send their current values, names and units. The device shows the
+readings at its next wake. Home Assistant refreshes them every 15 minutes.
+Edit a different device by opening **Configure** again. Clear the sensor list
+and save to stop sharing with that screen.
+
+On a standard weather screen, **Use the weather and readings layout** is
+selected for you. On a custom screen you can keep your design or select that
+option to switch. Individual readings can also be placed in StratusDash Screen.
+This picker uses the integration's saved token. It lists admin-owned devices
+that have reported display-input support. Existing graphs and controls work
+independently.
+
 ## Overnight graphs
 
 Add a **Statistics graph** card to your HA dashboard. Select the StratusDash

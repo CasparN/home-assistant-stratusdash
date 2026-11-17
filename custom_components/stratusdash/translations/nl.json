@@ -60,5 +60,36 @@
         "name": "Layout"
       }
     }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Kies je scherm",
+        "description": "Kies het StratusDash-apparaat voor deze metingen.",
+        "data": {
+          "device": "Apparaat"
+        }
+      },
+      "sensors": {
+        "title": "Metingen voor {device}",
+        "description": "Kies maximaal vier numerieke sensoren in de gewenste volgorde. Na opslaan worden de waarden direct en daarna elk kwartier verstuurd. Maak de selectie leeg om te stoppen. Je apparaat werkt het scherm bij zodra het weer verbinding maakt.",
+        "data": {
+          "sensors": "Sensoren",
+          "weather_layout": "Gebruik de indeling met weer en metingen"
+        },
+        "data_description": {
+          "weather_layout": "Toon het weer en alle gekozen metingen op dit scherm. Laat dit uit om je huidige indeling te behouden."
+        }
+      }
+    },
+    "error": {
+      "invalid_sensors": "Kies maximaal vier verschillende numerieke sensoren.",
+      "send_failed": "Opslaan is niet gelukt. Controleer de verbinding. Open Configureren opnieuw als het apparaat of de indeling is gewijzigd."
+    },
+    "abort": {
+      "entry_unavailable": "Verbind StratusDash voordat je een scherm kiest.",
+      "no_screens": "Geen geschikte schermen. Schermmetingen vereisen een apparaat van een beheerder dat compatibele firmware heeft gemeld.",
+      "no_sensors": "Er zijn nog geen numerieke sensoren beschikbaar in Home Assistant."
+    }
   }
 }
