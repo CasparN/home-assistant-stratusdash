@@ -60,5 +60,36 @@
         "name": "Layout"
       }
     }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Choose your screen",
+        "description": "Pick the StratusDash device for these readings.",
+        "data": {
+          "device": "Device"
+        }
+      },
+      "sensors": {
+        "title": "Readings for {device}",
+        "description": "Choose up to four numeric sensors in display order. Save to send them now and every 15 minutes. Clear the selection to stop sending. Your device updates at its next wake.",
+        "data": {
+          "sensors": "Sensors",
+          "weather_layout": "Use the weather and readings layout"
+        },
+        "data_description": {
+          "weather_layout": "Switch this screen to show weather and all selected readings. Leave off to keep your current screen design."
+        }
+      }
+    },
+    "error": {
+      "invalid_sensors": "Select up to four different numeric sensors.",
+      "send_failed": "Could not save. Check your connection and reopen Configure if the device or screen has changed."
+    },
+    "abort": {
+      "entry_unavailable": "StratusDash must be connected before you can choose a screen.",
+      "no_screens": "No eligible screens. Screen readings require an admin-owned device that has reported compatible firmware.",
+      "no_sensors": "No numeric sensors are available in Home Assistant yet."
+    }
   }
 }

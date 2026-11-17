@@ -64,6 +64,7 @@ class StratusDashDevice:
     sleep_hours: SleepHours
     quiet_until: datetime | None
     layout_id: int | None
+    display_setup: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -104,6 +105,26 @@ class StratusDashApiClient:
             "PUT", f"/devices/{device_id}/layout", json={"layout_id": layout_id}
         )
 
+    async def async_set_display(
+        self,
+        device_id: str,
+        items: list[dict],
+        *,
+        weather_layout_from: int | None = None,
+    ) -> None:
+        path = f"/devices/{device_id}/display"
+        if not items:
+            await self._request("DELETE", path)
+            return
+        params = (
+            {"weather_layout_from": str(weather_layout_from)}
+            if weather_layout_from is not None
+            else {}
+        )
+        await self._request(
+            "PUT", path, params=params, json={"items": items, "ttl_seconds": 3600}
+        )
+
     async def _request(self, method: str, path: str, **kwargs) -> dict | None:
         if _TOKEN_PATTERN.fullmatch(self._token) is None:
             raise StratusDashAuthenticationError("Invalid StratusDash credential")
@@ -123,7 +144,7 @@ class StratusDashApiClient:
                         raise StratusDashAuthenticationError(
                             "Invalid StratusDash credential"
                         )
-                    if response.status in (404, 422):
+                    if response.status in (403, 404, 409, 422):
                         raise StratusDashApiError(
                             "The device, layout or quiet-hours schedule is invalid"
                         )
@@ -201,6 +222,9 @@ def _parse_data(payload: dict) -> StratusDashData:
                     sleep_hours=SleepHours(enabled, start, end, zone),
                     quiet_until=_timestamp(raw.get("quiet_until")),
                     layout_id=layout_id,
+                    display_setup=raw.get("display_setup")
+                    if raw.get("display_setup") in ("weather", "custom", "readings")
+                    else None,
                 )
             )
         layouts = tuple(
